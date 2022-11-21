@@ -37,11 +37,35 @@ def move(starting_configuration: Tuple[ArrayLike], timestep: float = dt):
         positions[i] = [_x, _y]
     return positions
 
+def build_ewald_image(position_array: ArrayLike) -> ArrayLike:
+    """"""
+    ewald_images = {
+        "TL" : position_array + np.array([-L, L]),
+        "CL" : position_array + np.array([-L, 0]),
+        "BL" : position_array + np.array([-L, -L]),
+        "BC" : position_array + np.array([0, -L]),
+        "BR" : position_array + np.array([L, -L]),
+        "CR" : position_array + np.array([L, 0]),
+        "TR" : position_array + np.array([L, L]),
+        "TC" : position_array + np.array([0, L]),
+    }
+    return np.concatenate([position_array, *ewald_images.values()])
+
 def find_distances(position_array: ArrayLike) -> ArrayLike:
-    pass
+    """"""
+    ewald_image = build_ewald_image(position_array)
+    r = np.full((N, 9*N), np.nan)
+    for i in range(N):
+        assert ewald_image[i, 0] > 0 and ewald_image[i, 0] < L # Check that atom is indeed in centre square
+        assert ewald_image[i, 1] > 0 and ewald_image[i, 1] < L
+        position = ewald_image[i]
+        distances = np.linalg.norm(ewald_image-position, axis=1)
+        r[i,:] =  np.where(distances<L/2, distances, np.nan)
+    return r
 
 def force(position_array: ArrayLike) -> ArrayLike:
-    pass
+    radial_distances = find_distances(position_array)
+    
     
 def equilibriate():
     pass
