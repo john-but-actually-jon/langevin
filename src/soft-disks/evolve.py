@@ -30,13 +30,10 @@ def move(starting_configuration: Tuple[ArrayLike], timestep: float = dt):
     _positions = starting_configuration[0] + timestep * starting_configuration[1]
     for i, position in enumerate(_positions):
         _x, _y = position
-        while True:
-            if _x < 0 or _x > L:
-                _x = _x - np.sign(_x)*L
-            if _y < 0 or _y > L:
-                _y = _y - np.sign(_y)*L
-            else:
-                break
+        while _x < 0 or _x > L:
+            _x = _x - np.sign(_x)*L
+        while _y < 0 or _y > L:
+            _y = _y - np.sign(_y)*L
         positions[i] = [_x, _y]
     return positions
 
