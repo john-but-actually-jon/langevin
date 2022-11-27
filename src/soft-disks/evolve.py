@@ -37,8 +37,19 @@ def move(starting_configuration: Tuple[ArrayLike], timestep: float = dt):
         positions[i] = [_x, _y]
     return positions
 
-def build_ewald_image(position_array: ArrayLike) -> ArrayLike:
-    """"""
+def find_particle_quadrant(position: ArrayLike) -> int:
+    if position[0] < L/2:
+        if position[1] < L/2:
+            return 3
+        else:
+            return 1
+    elif position[1] > L/2: return 2
+    else: return 4
+
+def build_ewald_image(quadrant: int, position_array: ArrayLike) -> ArrayLike:
+    """
+    Build the appropriate set of Ewald images according to the least images convention
+    """
     ewald_images = {
         "TL" : position_array + np.array([-L, L]),
         "CL" : position_array + np.array([-L, 0]),
@@ -49,22 +60,71 @@ def build_ewald_image(position_array: ArrayLike) -> ArrayLike:
         "TR" : position_array + np.array([L, L]),
         "TC" : position_array + np.array([0, L]),
     }
-    return np.concatenate([position_array, *ewald_images.values()])
+    quadrant_keys = [
+        ["TL", "TC", "CL"],
+        ["TC", "TR", "CR"],
+        ["CL", "BL", "BC"],
+        ["CR", "BC", "BR"]
+    ]
+    images = [ewald_images[key] for key in quadrant_keys[quadrant]]
+    images.insert(0, position_array)
+    return np.concatenate(images)
 
-def find_distances(position_array: ArrayLike) -> ArrayLike:
-    """"""
-    ewald_image = build_ewald_image(position_array)
-    r = np.full((N, 9*N), np.nan)
-    for i in range(N):
-        assert ewald_image[i, 0] > 0 and ewald_image[i, 0] < L # Check that atom is indeed in centre square
-        assert ewald_image[i, 1] > 0 and ewald_image[i, 1] < L
-        position = ewald_image[i]
-        distances = np.linalg.norm(ewald_image-position, axis=1)
-        r[i,:] =  np.where(distances<L/2, distances, np.nan)
-    return r
+
+def find_directions(position_0: ArrayLike, position_array: ArrayLike)-> ArrayLike:
+    """
+    Find the unit direction vectors from a particle with `position_0` and all other
+    particles determined by the least image convention.
+    
+    NOTE: Remember to make this negative when calculating the force!
+    
+    Args:
+        - `position_0` (required): The position of the particle in question
+        - `position_array` (required): The positions of all particles in the 
+        centre image
+    """
+    
+    # Determine relevant images
+    image_positions = build_ewald_image(
+        find_particle_quadrant(position_0),
+        position_array
+    )
+
+    # Calculate the displacement vectors and their norms
+    displacement_norms = np.linalg.norm(
+        _displacements := position_array-position_0
+        , axis=1
+    )
+    # Filter for cutoff
+    _displacements = _displacements[displacement_norms < L/2, :]
+    displacement_norms = displacement_norms[displacement_norms < L/2]
+    
+    unit_displacements = (
+        _displacements / np.concatenate(
+            [displacement_norms, displacement_norms]
+            ).reshape(
+                [len(displacement_norms),-1],
+                order='F'
+            )
+    )
+    
+    return (unit_displacements, displacement_norms)
+
+def calculate_force(unit_displacements: ArrayLike, displacement_norms: ArrayLike):
+    r7 = displacement_norms ** 7
+    r13 = displacement_norms ** 13
+    
 
 def force(position_array: ArrayLike) -> ArrayLike:
-    radial_distances = find_distances(position_array)
+    forces = np.full(N, 2, np.nan)
+    
+    # Loop over particles and find the force for each of them
+    for i, particle_position in enumerate(position_array):
+        unit_displacements, displacement_norms = find_directions(
+            particle_position, 
+            position_array.delete(position_array, 0, axis=0)
+        )
+        forces[i,:] = calculate_force(unit_displacements, displacement_norms)
     
     
 def equilibriate():
@@ -76,4 +136,9 @@ if __name__=="__main__":
     from build_ensemble import square_build
     from utils import plot
 
-    plot(move(square_build()))
+    x = square_build()[0]
+    # print(x + [L, -L])
+    # a = x[0, :]
+    # print(a)
+    # x = np.delete(x,0, axis=0)
+    # print(find_directions(a,x))
