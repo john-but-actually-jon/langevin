@@ -1,10 +1,11 @@
 import numpy as np
 from numpy.typing import ArrayLike
 
-from typing import Tuple
+from typing import Tuple, List
 
+from data_types import Configuration
 from config import N, dt, L, epsilon, sigma, m
-from utils import plot
+from utils import plot, prog_bar
 from build_ensemble import hex_build, square_build
 
 
@@ -110,7 +111,7 @@ def force(position_array: ArrayLike) -> ArrayLike:
     return forces
 
 
-def update_position(position_array: ArrayLike, velocity_array: ArrayLike, timestep: float = dt):
+def update_position(configuration: Configuration, timestep: float = dt):
     """
     Updates the positions in 
     `starting_configuration` with the particles' 
@@ -119,7 +120,7 @@ def update_position(position_array: ArrayLike, velocity_array: ArrayLike, timest
     Parameters:
         - `starting_configuration` (Tuple
         [ArrayLike], required): The Tuple of 
-        position and velocity arrays that define 
+        position and  arrays that define 
         the current configuration.
         - `timestep` (float, optional): The length 
         of time to evolve over, uses the `dt` 
@@ -130,7 +131,7 @@ def update_position(position_array: ArrayLike, velocity_array: ArrayLike, timest
         the new position later.
     """
     positions = np.empty((N,2))
-    _positions = position_array[0] + timestep * velocity_array[1]
+    _positions = configuration.positions + timestep * configuration.velocities
     for i, position in enumerate(_positions):
         _x, _y = position
         while _x < 0 or _x > L:
@@ -140,27 +141,27 @@ def update_position(position_array: ArrayLike, velocity_array: ArrayLike, timest
         positions[i] = [_x, _y]
     return positions
  
-def update_velocity(position_array: ArrayLike, velocity_array: ArrayLike) -> ArrayLike:
+def update_velocity(configuration: Configuration, updated_position_array: ArrayLike) -> ArrayLike:
     """ 
     Updates the velocities of a given configuration based on the new positions, giving the force, and the old velocities
     
     Args:
-        - `position_array`: The *updated* positions of a given configuration
-        - `velocity_array`: Old velocities of the given configuration
+        - `configuration`: Configuration with the old positions ($q_{m-1}$)
+        - `updated_position_array`: The updated positions.
         
     Returns:
-        An array containing the new velocities of the input configuration
+        A tuple containing the updated velocities and forces
     """
-    forces = force(position_array)
-    velocities = velocity_array + dt * forces
+    forces = force(updated_position_array)
+    velocities = configuration.velocities + 0.5 * dt * (configuration.forces + forces)
     
-    return velocities
+    return (velocities, forces)
 
 def move(configuration: Tuple[ArrayLike]) -> Tuple[ArrayLike]:
-    positions = update_position(*configuration)
-    velocities = update_velocity(positions, configuration[1])
+    positions = update_position(configuration)
+    velocities, forces = update_velocity(configuration, positions)
     
-    return (positions, velocities)
+    return Configuration(positions, velocities, forces)
 
 
 def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
@@ -169,36 +170,48 @@ def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
     
     Args:
         - `position_array`: The positions of the particles in a given configuration
-        - `velocity_array`: The velocities of the particles in a given array
+        - `_array`: The velocities of the particles in a given array
         
     Returns:
         Tuple containing `kinetic_energy` and `potential_energy`
     """
-    position_array, velocity_array = configuration
+    position_array, _array = configuration.positions, configuration.velocities
     
     potential_energy = 0.0
-    kinetic_energy = np.sum(0.5*m*(np.linalg.norm(velocity_array, axis=1)**2))
+    kinetic_energy = np.sum(0.5*m*(np.linalg.norm(_array, axis=1)**2))
     
     for i, particle_position in enumerate(position_array):
         _unit_displacements, displacement_norms = find_directions(
             particle_position, 
             np.delete(position_array, i, axis=0)
         )
-        r6 = displacement_norms ** 6
-        r12 = r6**2
+        r12 = (r6 := displacement_norms ** 6)**2
         potential_energy += -np.sum(4*epsilon*(sigma/r12 - sigma/r6))
     
     return (kinetic_energy, potential_energy)
 
 
-def equilibriate(configuration: Tuple[ArrayLike], nsteps: int = 10000):
-    energies = []
+def equilibriate(initial_configuration: Configuration, nsteps: int = 10000) -> Tuple[Configuration, ArrayLike]:
+    kinetic_energies, potential_energies = [], []
+    configuration = Configuration(
+        initial_configuration.positions,
+        initial_configuration.velocities,
+        force(initial_configuration.positions)  
+    )
+
     for i in range(nsteps):
-        print(i, end='')
-        configuration = move(configuration)
-        if not i % 10:
-            energies.append(calculate_energies)
-    return energies
+        try:
+            configuration = move(configuration)
+            if not i % 10:
+                _energies = calculate_energies(configuration)
+                kinetic_energies.append(_energies[0])
+                potential_energies.append(_energies[1])
+            prog_bar(i, nsteps)
+        except KeyboardInterrupt:
+            return (configuration, (np.array(kinetic_energies), np.array(potential_energies)))
+        
+    energies = (np.array(kinetic_energies), np.array(potential_energies))
+    return (configuration, energies)
 
 
 if __name__=="__main__":
@@ -207,16 +220,5 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
 
     x = square_build()
-    # print(x[1])
-    energies = equilibriate(x)
-    plt.plot(range(len(energies)), energies[0], label="Kinetic Energy")
-    plt.plot(range(len(energies)), energies[1], label="Potential Energy")
-    plt.plot(range(len(energies)), np.sum(np.array(energies), axis=0), label="Total Energy")
-    
-    # print(find_directions(x[0][0], x[0][1:]))
-    # print(x + [L, -L])
-    # a = x[0, :]
-    # print(a)
-    # x = np.delete(x,0, axis=0)
-    # print(find_directions(a,x))
-    # plot(x[0])
+
+    newconf, energies = equilibriate(x, nsteps=100)

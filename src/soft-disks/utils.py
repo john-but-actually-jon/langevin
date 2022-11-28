@@ -55,5 +55,13 @@ def plot_with_velocities(conf: Tuple[ArrayLike], scaled_velocities: bool = False
         ax.add_patch(container)
     fig.show()
     
-
-    
+def prog_bar(iteration, max_iterations) -> None:
+    percent_done = iteration/max_iterations
+    d = "#" * round(percent_done * 84)
+    t = "-" * (84-round(percent_done * 84))
+    s = f"|{d+t}|{round(percent_done*100, 2)}%"
+    if percent_done==1:
+        s+='\n'        
+    if iteration>0:
+        s = '\r'+s
+    print(s, end="", flush=True)
