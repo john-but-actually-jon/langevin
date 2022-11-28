@@ -6,7 +6,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-from config import L, sigma, N, scaler
+from config import L, sigma, N, scaler, m
 
 
 def plot(conf, title=None):
@@ -54,3 +54,6 @@ def plot_with_velocities(conf: Tuple[ArrayLike], scaled_velocities: bool = False
         container = patches.Rectangle((0.1, 0.1), width = L, height = L, edgecolor = 'grey', fill = False, linestyle = ':')
         ax.add_patch(container)
     fig.show()
+    
+
+    
