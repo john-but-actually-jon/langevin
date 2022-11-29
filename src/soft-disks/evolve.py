@@ -9,16 +9,16 @@ from utils import plot, prog_bar
 from build_ensemble import hex_build, square_build
 
 
-def find_particle_quadrant(x_position: float, y_position) -> int:
-    if x_position < L/2:
-        if y_position < L/2:
+def find_particle_quadrant(positions) -> int:
+    if positions[0] < L/2:
+        if positions[1] < L/2:
             return 3
         else:
             return 1
-    elif y_position > L/2: return 2
+    elif positions[1] > L/2: return 2
     else: return 4
 
-quadrantizer = np.vectorize(find_particle_quadrant)
+quadrantizer = np.vectorize(find_particle_quadrant, signature='(2)->()')
 
 def build_ewald_image(quadrant: int, position_array: ArrayLike) -> ArrayLike:
     """
@@ -102,7 +102,7 @@ def calculate_force(unit_displacements: ArrayLike, displacement_norms: ArrayLike
 
 def force(position_array: ArrayLike) -> ArrayLike:
     forces = np.full((position_array.shape[0], 2), 0)
-    quadrants = quadrantizer(position_array[:,0], position_array[:,1])
+    quadrants = quadrantizer(position_array)
     # Loop over particles and find the force for each of them
     for i, particle_position in enumerate(position_array):
         try:
@@ -193,7 +193,7 @@ def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
     """
     position_array, velocity_array = configuration.positions, configuration.velocities
 
-    quadrants = quadrantizer(position_array[:,0], position_array[:,1])
+    quadrants = quadrantizer(position_array)
     potential_energy = 0.0
     kinetic_energy = np.sum(0.5*m*(np.linalg.norm(velocity_array, axis=1)**2))
 
