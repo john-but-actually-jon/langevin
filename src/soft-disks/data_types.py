@@ -22,8 +22,7 @@ class Configuration:
     forces: ArrayLike
     
     def __post_init__(self):
-        assert np.array(self.positions).shape == (N ,2)
-        assert np.array(self.velocities).shape == (N ,2)        
-        assert np.array(self.forces).shape == (N ,2)
+        assert np.array(self.positions).shape == np.array(self.velocities).shape
+
 
         

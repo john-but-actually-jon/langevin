@@ -4,7 +4,7 @@ from numpy.typing import ArrayLike
 from typing import Tuple, List
 
 from data_types import Configuration
-from config import N, dt, L, epsilon, sigma, m
+from config import N, dt, L, epsilon, sigma, m, lj_cutoff
 from utils import plot, prog_bar
 from build_ensemble import hex_build, square_build
 
@@ -40,7 +40,7 @@ def build_ewald_image(quadrant: int, position_array: ArrayLike) -> ArrayLike:
     ]
     images = [ewald_images[key] for key in quadrant_keys[quadrant-1]]
     images.insert(0, position_array)
-    return np.concatenate(images)
+    return np.concatenate(images,axis=0).reshape([-1,2])
 
 
 def find_directions(position_0: ArrayLike, position_array: ArrayLike)-> ArrayLike:
@@ -64,22 +64,23 @@ def find_directions(position_0: ArrayLike, position_array: ArrayLike)-> ArrayLik
 
     # Calculate the displacement vectors and their norms
     displacement_norms = np.linalg.norm(
-        _displacements := position_array-position_0
-        , axis=1
+        _displacements := image_positions-position_0
+        , axis=-1
     )
     # Filter for cutoff
-    _displacements = _displacements[displacement_norms < L/2, :]
-    displacement_norms = displacement_norms[displacement_norms < L/2]
-    
-    unit_displacements = (
-        _displacements / np.concatenate(
-            [displacement_norms, displacement_norms]
-            ).reshape(
-                [len(displacement_norms),-1],
-                order='F'
-            )
-    )
-    
+    _displacements = _displacements[displacement_norms <= lj_cutoff, :]
+    displacement_norms = displacement_norms[displacement_norms <= lj_cutoff]
+    if displacement_norms.size:
+        unit_displacements = (
+            _displacements / np.concatenate(
+                [displacement_norms, displacement_norms]
+                ).reshape(
+                    [len(displacement_norms),-1],
+                    order='F'
+                )
+        )
+    else:
+        unit_displacements=np.array([])
     return (unit_displacements, displacement_norms)
 
 def calculate_force(unit_displacements: ArrayLike, displacement_norms: ArrayLike):
@@ -98,16 +99,18 @@ def calculate_force(unit_displacements: ArrayLike, displacement_norms: ArrayLike
     )
 
 def force(position_array: ArrayLike) -> ArrayLike:
-    forces = np.full((N, 2), np.nan)
+    forces = np.full((N, 2), 0)
     
     # Loop over particles and find the force for each of them
     for i, particle_position in enumerate(position_array):
-        unit_displacements, displacement_norms = find_directions(
-            particle_position, 
-            np.delete(position_array, i, axis=0)
-        )
-        _f = calculate_force(unit_displacements, displacement_norms)
-        forces[i, :] = _f
+        try:
+            unit_displacements, displacement_norms = find_directions(
+                particle_position, 
+                np.delete(position_array, i, axis=0)
+            )
+            forces[i, :] = -calculate_force(unit_displacements, displacement_norms)
+        except ValueError:
+            return forces
     return forces
 
 
@@ -153,6 +156,7 @@ def update_velocity(configuration: Configuration, updated_position_array: ArrayL
         A tuple containing the updated velocities and forces
     """
     forces = force(updated_position_array)
+    
     velocities = configuration.velocities + 0.5 * dt * (configuration.forces + forces)
     
     return (velocities, forces)
@@ -169,29 +173,31 @@ def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
     Calculate the kinetic and potential energies of a configuration
     
     Args:
-        - `position_array`: The positions of the particles in a given configuration
-        - `_array`: The velocities of the particles in a given array
+        - `configuration`: COnfiguration object with data in question
         
     Returns:
         Tuple containing `kinetic_energy` and `potential_energy`
     """
-    position_array, _array = configuration.positions, configuration.velocities
+    position_array, velocity_array = configuration.positions, configuration.velocities
     
     potential_energy = 0.0
-    kinetic_energy = np.sum(0.5*m*(np.linalg.norm(_array, axis=1)**2))
+    kinetic_energy = np.sum(0.5*m*(np.linalg.norm(velocity_array, axis=1)**2))
     
     for i, particle_position in enumerate(position_array):
-        _unit_displacements, displacement_norms = find_directions(
-            particle_position, 
-            np.delete(position_array, i, axis=0)
-        )
-        r12 = (r6 := displacement_norms ** 6)**2
-        potential_energy += -np.sum(4*epsilon*(sigma/r12 - sigma/r6))
+        try:
+            _unit_displacements, displacement_norms = find_directions(
+                particle_position, 
+                np.delete(position_array, slice(0,i+1), axis=0)
+            )
+            r12 = (r6 := displacement_norms ** 6)**2
+            potential_energy += np.sum(4*epsilon*(sigma/r12 - sigma/r6)) + epsilon
+        except IndexError:
+            break
     
     return (kinetic_energy, potential_energy)
 
 
-def equilibriate(initial_configuration: Configuration, nsteps: int = 10000) -> Tuple[Configuration, ArrayLike]:
+def equilibriate(initial_configuration: Configuration, nsteps: int = 10000) -> Tuple[Configuration, Tuple[ArrayLike]]:
     kinetic_energies, potential_energies = [], []
     configuration = Configuration(
         initial_configuration.positions,
