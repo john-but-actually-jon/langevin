@@ -8,7 +8,7 @@ T = 1                 # Kelvin
 m = 1                   # Mass of particles
 ###########################
 L = 6                  # box size in nm?
-N = 36                 # number of particles
+N = 16                # number of particles
 eta = 0.72              # volume fraction
 rho = N/L**2            # number density
 sigma = 1               # particle diameter
