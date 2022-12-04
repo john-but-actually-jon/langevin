@@ -8,131 +8,61 @@ from config import N, dt, L, epsilon, sigma, m, lj_cutoff
 from utils import plot, prog_bar
 from build_ensemble import hex_build, square_build
 
-
-def find_particle_quadrant(positions) -> int:
-    if positions[0] < L/2:
-        if positions[1] < L/2:
-            return 3
-        else:
-            return 1
-    elif positions[1] > L/2: return 2
-    else: return 4
-
-quadrantizer = np.vectorize(find_particle_quadrant, signature='(2)->()')
-
 # @jit
 def tile_and_remove_self_reference(position_array: ArrayLike, ndims: int=2) -> ArrayLike:
     """
-    Tile the input array of positions such that each particle has an 
-    associated copy of the position array. 
-    Then remove the diagonal elements of resulting matrix to remove 
-    the position of the particle to which the new position array 
+    Tile the input array of positions such that each particle has an
+    associated copy of the position array.
+    Then remove the diagonal elements of resulting matrix to remove
+    the position of the particle to which the new position array
     belongs.
-    
+
     Args:
-        - `position_array` (required): The array containing the 
+        - `position_array` (required): The array containing the
         positions of `ndim`
-        - `ndim` (optional): Number of dimensions specified by the position elements. Default: 2 
+        - `ndim` (optional): Number of dimensions specified by the position elements. Default: 2
     """
     tiled = np.tile(position_array, (position_array.shape[0],1,1))
     return tiled[~np.eye(tiled.shape[0],tiled.shape[1], dtype=bool)].reshape([tiled.shape[0], -1, ndims])
 
-def build_ewald_image(quadrant: int, position_array: ArrayLike) -> ArrayLike:
+def find_directions(position_array: ArrayLike)-> ArrayLike:
     """
-    Build the appropriate set of Ewald images according to the least images convention
+    Return an Nx(N-1)x2 matrix that contains the inter-particle displacement vectors for every particle, excluding itself according to the least image convention.
     """
+    # Determine relevant image
+    dediagonalised_positions = tile_and_remove_self_reference(position_array)
+    difference_array = position_array.repeat(
+        dediagonalised_positions.shape[1],
+        axis=0
+    ).reshape(dediagonalised_positions.shape)
+    image_displacements = dediagonalised_positions-difference_array
 
-    ewald_images = {
-        "TL" : position_array + np.array([-L, L]),
-        "CL" : position_array + np.array([-L, 0]),
-        "BL" : position_array + np.array([-L, -L]),
-        "BC" : position_array + np.array([0, -L]),
-        "BR" : position_array + np.array([L, -L]),
-        "CR" : position_array + np.array([L, 0]),
-        "TR" : position_array + np.array([L, L]),
-        "TC" : position_array + np.array([0, L]),
-    }
-    quadrant_keys = [
-        ["TL", "TC", "CL"],
-        ["TC", "TR", "CR"],
-        ["CL", "BL", "BC"],
-        ["CR", "BC", "BR"]
-    ]
-    images = [ewald_images[key] for key in quadrant_keys[int(quadrant)-1]]
-    images.insert(0, position_array)
-    return np.concatenate(images,axis=0).reshape([-1,2])
-
-image_builder = np.vectorize(
-    build_ewald_image, 
-    signature="(),(n,2)->(m,2)"
-)
-
-def calculate_unit_vectors(displacement_norms: ArrayLike, displacement_vectors) -> ArrayLike:
-    # Ensure that displacement norms can divide displacement_vectors, (shape=(n,n-1,2))
-    unit_displacements = (
-            np.divide(displacement_vectors, np.concatenate(
-                [displacement_norms, displacement_norms]
-                ).reshape(
-                    [len(displacement_norms),-1],
-                    order='F'
-                )
-            )
-        )
-    return unit_displacements
-
-def find_directions(quadrants: int, position_array: ArrayLike)-> ArrayLike:
-    """
-    Find the unit direction vectors from a particle with `position_0` and all other
-    particles determined by the least image convention.
-
-    NOTE: Remember to make this negative when calculating the force!
-
-    Args:
-        - `position_0` (required): The position of the particle in question
-        - `position_array` (required): The positions of all particles in the
-        centre image
-    """
-
-    # Determine relevant images
-    image_positions = image_builder(
-        quadrants,
-        position_array
-    )
-    # Calculate displacements of particles
-    displacement_vectors = image_positions - np.tile(
-        position_array, 
-        (1, image_positions.shape[1])
-    ).reshape(image_positions.shape)
-    
     # Calculate the displacement vectors and their norms
     displacement_norms = np.linalg.norm(
-        displacement_vectors
+        image_displacements
         , axis=-1
     )
-    
+
     # Filter for cutoff
-    displacement_vectors = np.array(
-        [
-            arr[np.where(displacement_norms < lj_cutoff, True, False)[i,:]] for i, arr in enumerate(displacement_vectors)
-        ]
-    )
-    displacement_norms = np.array(
-        [
-            arr[~np.isnan(arr)] for arr in np.where(displacement_norms<=3, displacement_norms, np.nan)
-        ]
-    )
-    if displacement_norms.size:
-        unit_displacements = (
-            displacement_vectors / np.concatenate(
-                [displacement_norms, displacement_norms]
-                ).reshape(
-                    [len(displacement_norms),-1],
-                    order='F'
-                )
+    mask = (displacement_norms <= lj_cutoff)
+    vector_mask = np.dstack([mask, mask])
+    displacements = np.where(vector_mask, image_displacements, np.nan)
+    displacement_norms = np.where(mask, displacement_norms, np.nan)
+
+    # Divide vectors by their norms
+    unit_vectors = np.full(displacements.shape, np.nan)
+    if ~np.isnan(displacement_norms).all():
+        np.divide(
+            displacements,
+            np.dstack([displacement_norms]*2),
+            out=unit_vectors,
+            where=vector_mask
         )
-    else:
-        unit_displacements=np.array([])
-    return (unit_displacements, displacement_norms)
+    # Return MASKED vectors, to allow for use later on
+    return (
+        np.ma.array(unit_vectors, mask=np.isnan(unit_vectors), fill_value=0),
+        np.ma.array(displacement_norms, mask=np.isnan(displacement_norms), fill_value=0)
+    )
 
 
 def calculate_force(unit_displacements: ArrayLike, displacement_norms: ArrayLike) -> ArrayLike:
@@ -141,34 +71,25 @@ def calculate_force(unit_displacements: ArrayLike, displacement_norms: ArrayLike
     absolute_force = 24*epsilon*(sigma/r7 - 2*sigma/r13)
 
     return np.sum(
-        unit_displacements * np.concatenate(
-            (absolute_force, absolute_force)
-            ).reshape(
-                [len(absolute_force),-1],
-                order='F'
-            ),
-            axis=0
-    )
+        unit_displacements * np.dstack([absolute_force]*2),
+        axis=1
+    ).data
 
 def force(position_array: ArrayLike) -> ArrayLike:
     forces = np.full((position_array.shape[0], 2), 0)
-    quadrants = quadrantizer(position_array)
-    # Loop over particles and find the force for each of them
-    for i, particle_position in enumerate(position_array):
-        try:
-            unit_displacements, displacement_norms = find_directions(
-                quadrants,
-                position_array
-                # particle_position,
-                # quadrants,
-                # np.delete(position_array, i, axis=0)
-            )
-            forces[i, :] = calculate_force(
-                unit_displacements,
-                displacement_norms
-            )
-        except ValueError:
-            return forces
+
+    try:
+        unit_displacements, displacement_norms = find_directions(
+            position_array
+        )
+        forces = calculate_force(
+            unit_displacements,
+            displacement_norms
+        )
+        assert forces.shape == position_array.shape
+
+    except ValueError:
+        return forces
     return forces
 
 def rebox(position: ArrayLike) -> ArrayLike:
@@ -178,7 +99,7 @@ def rebox(position: ArrayLike) -> ArrayLike:
 
 v_rebox = np.vectorize(rebox, signature=f'(2)->(2)')
 
-def update_position(configuration: Configuration, timestep: float = dt):
+def update_position(configuration: Configuration, timestep: float = dt) -> Configuration:
     """
     Updates the positions in
     `starting_configuration` with the particles'
@@ -197,43 +118,45 @@ def update_position(configuration: Configuration, timestep: float = dt):
         thus the velocities are calculated from
         the new position later.
     """
-    # positions = np.empty((configuration.positions.shape[0],2))
-    return v_rebox(
+    new_conf = Configuration(
+        v_rebox(
         configuration.positions + timestep * configuration.velocities
+        ),
+        configuration.velocities,
+        configuration.forces
     )
 
+    return new_conf
 
-def update_velocity(configuration: Configuration, updated_position_array: ArrayLike) -> ArrayLike:
+
+def update_velocity(configuration: Configuration) -> Configuration:
     """
-    Updates the velocities of a given configuration based on the new positions, giving the force, and the old velocities
-
-    Args:
-        - `configuration`: Configuration with the old positions ($q_{m-1}$)
-        - `updated_position_array`: The updated positions.
-
-    Returns:
-        A tuple containing the updated velocities and forces
+    Finds the discretized "m plus one half" velocity. Apply twice, once with the old coordinates and once with the new coordinates to get the full velocity update.
     """
-    forces = force(updated_position_array)
 
-    velocities = configuration.velocities + 0.5 * dt * (configuration.forces + forces)
+    velocities = configuration.velocities - 0.5 * dt * (configuration.forces)
 
-    return (velocities, forces)
+    return Configuration(
+        configuration.positions,
+        velocities,
+        configuration.forces
+    )
 
-def move(configuration: Tuple[ArrayLike]) -> Tuple[ArrayLike]:
-    positions = update_position(configuration)
-    velocities, forces = update_velocity(configuration, positions)
+def move(configuration: Configuration) -> Configuration:
+    v_m_plus_half_conf = update_velocity(configuration)
+    q_m_plus_one_conf = update_position(v_m_plus_half_conf)
+    q_m_plus_one_conf.forces = force(q_m_plus_one_conf.positions)
 
-    return Configuration(positions, velocities, forces)
+    return update_velocity(q_m_plus_one_conf)
 
 @jit(forceobj=True)
 def p_energy(absolute_distances: ArrayLike) -> float:
     r6 = absolute_distances ** 6
     r12 = r6**2
-    return np.sum(4*epsilon*(sigma/r12 - sigma/r6)) + r6.size*epsilon
+    return np.sum(4*epsilon*(sigma/r12 - sigma/r6)) + epsilon
 
 
-def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
+def calculate_energies(configuration: Configuration) -> Tuple[float]:
     """
     Calculate the kinetic and potential energies of a configuration
 
@@ -245,33 +168,35 @@ def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
     """
     position_array, velocity_array = configuration.positions, configuration.velocities
 
-    quadrants = quadrantizer(position_array)
     potential_energy = 0.0
     kinetic_energy = np.sum(0.5*m*(np.linalg.norm(velocity_array, axis=1)**2))
 
-
-    for i, particle_position in enumerate(position_array):
-        try:
-            if not position_array.shape[0]==2:
-                _unit_displacements, displacement_norms = find_directions(
-                    particle_position,
-                    quadrants[i],
-                    np.delete(position_array, slice(0,i+1), axis=0)
-                )
-            else:
-                displacement_norms = np.linalg.norm(position_array - particle_position)
-                potential_energy += p_energy(displacement_norms)
-                break
-            potential_energy += p_energy(displacement_norms)
-        except IndexError:
-            break
+    try:
+        if not position_array.shape[0]==2:
+            _unit_displacements, displacement_norms = find_directions(
+                position_array,
+            )
+        else:
+            print("THis shit wack")
+            # displacement_norms = np.linalg.norm(position_array - particle_position)
+            # potential_energy += p_energy(displacement_norms)
+            # break
+        potential_energy += p_energy(displacement_norms)
+    except IndexError:
+        raise IndexError # yep, this is gross
 
 
     return (kinetic_energy, potential_energy)
 
 
-def equilibriate(initial_configuration: Configuration, nsteps: int = 10000) -> Tuple[Configuration, Tuple[ArrayLike]]:
+def equilibriate(initial_configuration: Configuration, nsteps: int = 10000, cache_interval=None) -> Tuple[Configuration, Tuple[ArrayLike], List[Configuration]]:
     kinetic_energies, potential_energies = [], []
+    initial_energies = calculate_energies(initial_configuration)
+    kinetic_energies.append(initial_energies[0])
+    potential_energies.append(initial_energies[1])
+    saved_configs = []
+
+
     configuration = Configuration(
         initial_configuration.positions,
         initial_configuration.velocities,
@@ -286,11 +211,13 @@ def equilibriate(initial_configuration: Configuration, nsteps: int = 10000) -> T
                 kinetic_energies.append(_energies[0])
                 potential_energies.append(_energies[1])
             prog_bar(i, nsteps)
+            if cache_interval and i % cache_interval:
+                saved_configs.append(configuration)
         except KeyboardInterrupt:
-            return (configuration, (np.array(kinetic_energies), np.array(potential_energies)))
+            return (configuration, (np.array(kinetic_energies), np.array(potential_energies)), saved_configs)
 
     energies = (np.array(kinetic_energies), np.array(potential_energies))
-    return (configuration, energies)
+    return (configuration, energies, saved_configs)
 
 
 if __name__=="__main__":
