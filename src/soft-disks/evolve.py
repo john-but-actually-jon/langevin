@@ -20,10 +20,28 @@ def find_particle_quadrant(positions) -> int:
 
 quadrantizer = np.vectorize(find_particle_quadrant, signature='(2)->()')
 
+# @jit
+def tile_and_remove_self_reference(position_array: ArrayLike, ndims: int=2) -> ArrayLike:
+    """
+    Tile the input array of positions such that each particle has an 
+    associated copy of the position array. 
+    Then remove the diagonal elements of resulting matrix to remove 
+    the position of the particle to which the new position array 
+    belongs.
+    
+    Args:
+        - `position_array` (required): The array containing the 
+        positions of `ndim`
+        - `ndim` (optional): Number of dimensions specified by the position elements. Default: 2 
+    """
+    tiled = np.tile(position_array, (position_array.shape[0],1,1))
+    return tiled[~np.eye(tiled.shape[0],tiled.shape[1], dtype=bool)].reshape([tiled.shape[0], -1, ndims])
+
 def build_ewald_image(quadrant: int, position_array: ArrayLike) -> ArrayLike:
     """
     Build the appropriate set of Ewald images according to the least images convention
     """
+
     ewald_images = {
         "TL" : position_array + np.array([-L, L]),
         "CL" : position_array + np.array([-L, 0]),
@@ -40,11 +58,29 @@ def build_ewald_image(quadrant: int, position_array: ArrayLike) -> ArrayLike:
         ["CL", "BL", "BC"],
         ["CR", "BC", "BR"]
     ]
-    images = [ewald_images[key] for key in quadrant_keys[quadrant-1]]
+    images = [ewald_images[key] for key in quadrant_keys[int(quadrant)-1]]
     images.insert(0, position_array)
     return np.concatenate(images,axis=0).reshape([-1,2])
 
-def find_directions(position_0: ArrayLike, quadrant: int, position_array: ArrayLike)-> ArrayLike:
+image_builder = np.vectorize(
+    build_ewald_image, 
+    signature="(),(n,2)->(m,2)"
+)
+
+def calculate_unit_vectors(displacement_norms: ArrayLike, displacement_vectors) -> ArrayLike:
+    # Ensure that displacement norms can divide displacement_vectors, (shape=(n,n-1,2))
+    unit_displacements = (
+            np.divide(displacement_vectors, np.concatenate(
+                [displacement_norms, displacement_norms]
+                ).reshape(
+                    [len(displacement_norms),-1],
+                    order='F'
+                )
+            )
+        )
+    return unit_displacements
+
+def find_directions(quadrants: int, position_array: ArrayLike)-> ArrayLike:
     """
     Find the unit direction vectors from a particle with `position_0` and all other
     particles determined by the least image convention.
@@ -58,22 +94,36 @@ def find_directions(position_0: ArrayLike, quadrant: int, position_array: ArrayL
     """
 
     # Determine relevant images
-    image_positions = build_ewald_image(
-        quadrant,
+    image_positions = image_builder(
+        quadrants,
         position_array
     )
-
+    # Calculate displacements of particles
+    displacement_vectors = image_positions - np.tile(
+        position_array, 
+        (1, image_positions.shape[1])
+    ).reshape(image_positions.shape)
+    
     # Calculate the displacement vectors and their norms
     displacement_norms = np.linalg.norm(
-        _displacements := image_positions-position_0
+        displacement_vectors
         , axis=-1
     )
+    
     # Filter for cutoff
-    _displacements = _displacements[displacement_norms <= lj_cutoff, :]
-    displacement_norms = displacement_norms[displacement_norms <= lj_cutoff]
+    displacement_vectors = np.array(
+        [
+            arr[np.where(displacement_norms < lj_cutoff, True, False)[i,:]] for i, arr in enumerate(displacement_vectors)
+        ]
+    )
+    displacement_norms = np.array(
+        [
+            arr[~np.isnan(arr)] for arr in np.where(displacement_norms<=3, displacement_norms, np.nan)
+        ]
+    )
     if displacement_norms.size:
         unit_displacements = (
-            _displacements / np.concatenate(
+            displacement_vectors / np.concatenate(
                 [displacement_norms, displacement_norms]
                 ).reshape(
                     [len(displacement_norms),-1],
@@ -107,9 +157,11 @@ def force(position_array: ArrayLike) -> ArrayLike:
     for i, particle_position in enumerate(position_array):
         try:
             unit_displacements, displacement_norms = find_directions(
-                particle_position,
-                quadrants[i],
-                np.delete(position_array, i, axis=0)
+                quadrants,
+                position_array
+                # particle_position,
+                # quadrants,
+                # np.delete(position_array, i, axis=0)
             )
             forces[i, :] = calculate_force(
                 unit_displacements,
@@ -178,7 +230,7 @@ def move(configuration: Tuple[ArrayLike]) -> Tuple[ArrayLike]:
 def p_energy(absolute_distances: ArrayLike) -> float:
     r6 = absolute_distances ** 6
     r12 = r6**2
-    return np.sum(4*epsilon*(sigma/r12 - sigma/r6)) + epsilon
+    return np.sum(4*epsilon*(sigma/r12 - sigma/r6)) + r6.size*epsilon
 
 
 def calculate_energies(configuration: Tuple[ArrayLike]) -> Tuple[float]:
