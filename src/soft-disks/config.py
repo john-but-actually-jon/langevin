@@ -15,7 +15,7 @@ sigma = 1               # particle diameter
 dr = sigma/20           # binning interval for the correlation function
 Nsteps = 1000   #Number of steps involved in the simulation
 epsilon = 1 # Factor for LJ Potential
-dt = 0.005
+dt = 0.05
 lj_cutoff = sigma*2**(1/6)
 
 init_spacing = L/(np.sqrt(N)+0.2)

@@ -2,11 +2,13 @@ import numpy as np
 from numpy.typing import ArrayLike
 from numba import jit
 from typing import Tuple, List
+from pathlib import Path
 
 from data_types import Configuration
 from config import N, dt, L, epsilon, sigma, m, lj_cutoff
-from utils import plot, prog_bar
+from utils import plot, prog_bar, save_configs
 from build_ensemble import hex_build, square_build
+
 
 
 
@@ -59,6 +61,7 @@ def rebox(position: ArrayLike) -> ArrayLike:
 
 v_rebox = np.vectorize(rebox, signature=f'(2)->(2)')
 
+@jit(forceobj=True)
 def update_position(configuration: Configuration, timestep: float = dt):
     """
     Updates the positions in
@@ -90,7 +93,7 @@ def update_position(configuration: Configuration, timestep: float = dt):
 
     return new_conf
 
-
+@jit(forceobj=True)
 def update_velocity(configuration: Configuration) -> Configuration:
     """
     Finds the discretized "m plus one half" velocity. Apply twice, once with the old coordinates and forces and once with the new coordinates and forces to get the full velocity update.
@@ -141,7 +144,8 @@ def calculate_energies(configuration: Configuration) -> Tuple[float]:
     return (kinetic_energy, potential_energy)
 
 
-def equilibriate(initial_configuration: Configuration, nsteps: int = 10000, cache_interval=None) -> Tuple[Configuration, Tuple[ArrayLike], List[Configuration]]:
+
+def equilibriate(initial_configuration: Configuration, nsteps: int = 5000, cache_interval=None, folder_name=None) -> Tuple[Configuration, Tuple[ArrayLike], List[Configuration]]:
     kinetic_energies, potential_energies = [], []
     average_velocities = []
     saved_configs = []
@@ -162,12 +166,15 @@ def equilibriate(initial_configuration: Configuration, nsteps: int = 10000, cach
                 potential_energies.append(_energies[1])
             prog_bar(i, nsteps)
             if cache_interval and i % cache_interval:
+                assert folder_name, 'No folder name provided for saving configs!'
                 saved_configs.append(configuration)
         except KeyboardInterrupt:
             return (configuration, (np.array(kinetic_energies), np.array(potential_energies)), saved_configs,  np.array(average_velocities))
-
+    prog_bar(nsteps,nsteps)
     energies = (np.array(kinetic_energies), np.array(potential_energies))
-    return (configuration, energies, saved_configs, np.array(average_velocities))
+    if folder_name:
+        save_configs(saved_configs, folder_name)
+    return (configuration, energies, np.array(average_velocities))
 
 
 if __name__=="__main__":
