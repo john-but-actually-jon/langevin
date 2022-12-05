@@ -26,11 +26,11 @@ v_radial_pbc = np.vectorize(radial_pbc, signature='(2)->(2)')
 def force(position_array: ArrayLike) -> ArrayLike:
     # quadrants = quadrantizer(position_array)
     # Loop over particles and find the force for each of them
-    forces = np.empty((N, 2))
-    positions = np.stack([position_array]*N)
-    difference_array = np.array([[position]*N for position in position_array])
+    forces = np.empty((position_array.shape[0], 2))
+    positions = np.stack([position_array]*position_array.shape[0])
+    difference_array = np.array([[position]*position_array.shape[0] for position in position_array])
     displacement_vectors = v_radial_pbc(positions-difference_array)
-    
+
     r2 = np.sum(np.square(displacement_vectors), axis=-1)
 
     for i, particle_image in enumerate(r2):
@@ -39,7 +39,7 @@ def force(position_array: ArrayLike) -> ArrayLike:
         for j, displacement in enumerate(particle_image):
             if displacement <= lj_cutoff**2 and displacement != 0:
                 valid_vectors.append(displacement_vectors[i,j,:])
-                
+
         valid_vectors = np.array(valid_vectors)
         # Sum the force contributions from valid displacement vectors
         norms = np.linalg.norm(valid_vectors, axis=-1)
@@ -106,7 +106,7 @@ def update_velocity(configuration: Configuration) -> Configuration:
         velocities,
         configuration.forces
     )
-    
+
 def move(configuration: Configuration) -> Configuration:
     v_m_plus_half_conf = update_velocity(configuration)
     q_m_plus_one_conf = update_position(v_m_plus_half_conf)
@@ -115,11 +115,12 @@ def move(configuration: Configuration) -> Configuration:
 
 @jit(forceobj=True)
 def p_energy(position_array: ArrayLike) -> float:
-    mask = np.dstack([np.tril([True]*N)]*2)
-    positions = np.stack([position_array]*N)
-    difference_array = np.array([[position]*N for position in position_array])
+    mask = np.dstack([np.tril([True]*position_array.shape[0])]*2)
+    positions = np.stack([position_array]*position_array.shape[0])
+    difference_array = np.array([[position]*position_array.shape[0] for position in position_array])
 
-    r2 = np.sum(np.square(np.where(~mask, v_rebox(positions-difference_array), 0)), axis=-1)
+    # r2 = np.sum(np.square(np.where(~mask, v_rebox(positions-difference_array), 0)), axis=-1)
+    r2 = np.sum(np.square(v_rebox(positions-difference_array)), axis=-1)
     r2 = r2[(r2 <= lj_cutoff**2) & (r2 !=0)]
     inverse = np.divide(1,r2, out=np.zeros_like(r2), where=(r2>0))
     potential_energy = 4*(
@@ -160,16 +161,16 @@ def equilibriate(initial_configuration: Configuration, nsteps: int = 5000, cache
         try:
             configuration = move(configuration)
             average_velocities.append(np.mean(np.abs(configuration.velocities), axis=0))
-            if not i % 10:
+            if not i % 1:
                 _energies = calculate_energies(configuration)
                 kinetic_energies.append(_energies[0])
                 potential_energies.append(_energies[1])
             prog_bar(i, nsteps)
-            if cache_interval and i % cache_interval:
+            if cache_interval and not i % cache_interval:
                 assert folder_name, 'No folder name provided for saving configs!'
                 saved_configs.append(configuration)
         except KeyboardInterrupt:
-            return (configuration, (np.array(kinetic_energies), np.array(potential_energies)), saved_configs,  np.array(average_velocities))
+            return (configuration, (np.array(kinetic_energies), np.array(potential_energies)),  np.array(average_velocities))
     prog_bar(nsteps,nsteps)
     energies = (np.array(kinetic_energies), np.array(potential_energies))
     if folder_name:
@@ -180,7 +181,6 @@ def equilibriate(initial_configuration: Configuration, nsteps: int = 5000, cache
 if __name__=="__main__":
     from build_ensemble import square_build
     from utils import plot
-    import matplotlib.pyplot as plt
 
     x = square_build()
 
