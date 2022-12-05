@@ -24,15 +24,19 @@ def hex_build() -> Tuple[ArrayLike]:
     return Configuration(positions=initial_positions, velocities=initial_velocities, forces = np.full((N, 2), np.nan))
      
 
-def square_build() -> Tuple[ArrayLike]:
-    _velocities = np.random.normal(0, np.sqrt(velocity_variance), size=(N,2))
+def square_build(n = N) -> Configuration:
+    _velocities = np.random.normal(0, np.sqrt(velocity_variance), size=(n,2))
     mean_velocity = np.mean(_velocities, axis=0)
     initial_velocities = _velocities - mean_velocity
-
-    X,Y = np.mgrid[sigma/2:L-sigma/2:(L-0.2)/np.sqrt(N), sigma/2:L-sigma/2:(L-0.2)/np.sqrt(N)]
+    if int(np.sqrt(n))**2 == n:
+        square_length = n
+    else:
+        square_length = (int(np.sqrt(n)) + 1)**2
+    
+    X,Y = np.mgrid[sigma/2:L-sigma/2:(L-0.2)/np.sqrt(square_length), sigma/2:L-sigma/2:(L-0.2)/np.sqrt(square_length)]
     initial_positions = np.array(list(zip(X.flatten(), Y.flatten())))
     
-    return Configuration(positions=initial_positions, velocities=initial_velocities, forces = np.full((N, 2), np.nan))
+    return Configuration(positions=initial_positions[:n,:], velocities=initial_velocities, forces = np.full((n, 2), np.nan))
 
 if __name__ == "__main__":
     print(hex_build())
