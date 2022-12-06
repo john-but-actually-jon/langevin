@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import ArrayLike
 from numba import jit
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 from pathlib import Path
 
 from data_types import Configuration
@@ -12,24 +12,24 @@ from build_ensemble import hex_build, square_build
 
 
 
-def radial_pbc(r):
+def radial_pbc(r, l=L):
     """ Find the PBC displacement vector between two particles. Apply after the subtraction method"""
     rx, ry = r
-    if np.abs(rx) > L/2:
-        rx = rx - np.sign(rx) * L
-    if np.abs(ry) > L/2:
-        ry = ry - np.sign(ry) * L
+    if np.abs(rx) > l/2:
+        rx = rx - np.sign(rx) * l
+    if np.abs(ry) > l/2:
+        ry = ry - np.sign(ry) * l
     return np.array([rx, ry])
 
-v_radial_pbc = np.vectorize(radial_pbc, signature='(2)->(2)')
+v_radial_pbc = np.vectorize(radial_pbc, signature='(2),()->(2)')
 
-def force(position_array: ArrayLike) -> ArrayLike:
-    # quadrants = quadrantizer(position_array)
+def force(position_array: ArrayLike, metadata: Dict[str, Any]) -> ArrayLike:
+
     # Loop over particles and find the force for each of them
     forces = np.empty((position_array.shape[0], 2))
     positions = np.stack([position_array]*position_array.shape[0])
     difference_array = np.array([[position]*position_array.shape[0] for position in position_array])
-    displacement_vectors = v_radial_pbc(positions-difference_array)
+    displacement_vectors = v_radial_pbc(positions-difference_array, metadata['L'])
 
     r2 = np.sum(np.square(displacement_vectors), axis=-1)
 
@@ -54,12 +54,12 @@ def force(position_array: ArrayLike) -> ArrayLike:
     return forces
 
 
-def rebox(position: ArrayLike) -> ArrayLike:
-    x = position[0] - np.floor((position[0] - position[0] % L)/L) * L
-    y = position[1] - np.floor((position[1] - position[1] % L)/L) * L
+def rebox(position: ArrayLike, l=L) -> ArrayLike:
+    x = position[0] - np.floor((position[0] - position[0] % l)/l) * l
+    y = position[1] - np.floor((position[1] - position[1] % l)/l) * l
     return np.array([x,y])
 
-v_rebox = np.vectorize(rebox, signature=f'(2)->(2)')
+v_rebox = np.vectorize(rebox, signature=f'(2),()->(2)')
 
 @jit(forceobj=True)
 def update_position(configuration: Configuration, timestep: float = dt):
@@ -82,13 +82,15 @@ def update_position(configuration: Configuration, timestep: float = dt):
         the new position later.
     """
     positions = v_rebox(
-    configuration.positions + timestep * configuration.velocities
+    configuration.positions + timestep * configuration.velocities,
+    configuration.metadata['L']
     )
-    forces = force(positions)
+    forces = force(positions, configuration.metadata)
     new_conf = Configuration(
         positions,
         configuration.velocities,
-        forces
+        forces,
+        configuration.metadata
     )
 
     return new_conf
@@ -104,7 +106,8 @@ def update_velocity(configuration: Configuration) -> Configuration:
     return Configuration(
         configuration.positions,
         velocities,
-        configuration.forces
+        configuration.forces,
+        configuration.metadata
     )
 
 def move(configuration: Configuration) -> Configuration:
@@ -114,17 +117,17 @@ def move(configuration: Configuration) -> Configuration:
     return update_velocity(q_m_plus_one_conf)
 
 @jit(forceobj=True)
-def p_energy(position_array: ArrayLike) -> float:
+def p_energy(position_array: ArrayLike, metadata: Dict) -> float:
     mask = np.dstack([np.tril([True]*position_array.shape[0])]*2)
     positions = np.stack([position_array]*position_array.shape[0])
     difference_array = np.array([[position]*position_array.shape[0] for position in position_array])
 
     # r2 = np.sum(np.square(np.where(~mask, v_rebox(positions-difference_array), 0)), axis=-1)
-    r2 = np.sum(np.square(v_rebox(positions-difference_array)), axis=-1)
+    r2 = np.sum(np.square(v_rebox(positions-difference_array, metadata['L'])), axis=-1)
     r2 = r2[(r2 <= lj_cutoff**2) & (r2 !=0)]
     inverse = np.divide(1,r2, out=np.zeros_like(r2), where=(r2>0))
     potential_energy = 4*(
-        np.power(1/r2, 6) - np.power(1/r2, 3)
+        np.power(inverse, 6) - np.power(inverse, 3)
     ) + 1
     return np.sum(potential_energy)
 
@@ -147,6 +150,18 @@ def calculate_energies(configuration: Configuration) -> Tuple[float]:
 
 
 def equilibriate(initial_configuration: Configuration, nsteps: int = 5000, cache_interval=None, folder_name=None) -> Tuple[Configuration, Tuple[ArrayLike], List[Configuration]]:
+    """
+    Updates a position a specified number of times. Option to save the resulting configurations at certain intervals under a specific `folder_name`
+    
+    Args:
+        - `initial_configuration` (required): The starting configuration to evolve.
+        - `nsteps` (required): The desired number of steps to evolve by.
+        - `cache_interval` (optional): The interval between configs that are saved. Defaults to None which saves none.
+        - `folder_name` (optional): The name of the folder under `data` into which the configs are saved. Must be specified if `cache_interval is specified.
+        
+    Returns:
+        Tuple containing the final configuration, the energy tuple and the average velocity array.
+    """
     kinetic_energies, potential_energies = [], []
     average_velocities = []
     saved_configs = []
@@ -154,7 +169,8 @@ def equilibriate(initial_configuration: Configuration, nsteps: int = 5000, cache
     starting_configuration = Configuration(
         initial_configuration.positions,
         initial_configuration.velocities,
-        force(initial_configuration.positions)
+        force(initial_configuration.positions),
+        initial_configuration.metadata
     )
     configuration = starting_configuration
     for i in range(nsteps):

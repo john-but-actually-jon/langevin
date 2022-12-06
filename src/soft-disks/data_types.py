@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from typing import Dict, Any
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -20,6 +20,7 @@ class Configuration:
     positions: ArrayLike
     velocities: ArrayLike
     forces: ArrayLike
+    metadata: Dict[str, Any]
 
     def __post_init__(self):
         estring = f"Velocity and position properties' shapes do not match. Position shape: {self.positions.shape}, velocities shape: {self.velocities.shape}."

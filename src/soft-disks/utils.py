@@ -15,8 +15,8 @@ from data_types import Configuration
 
 def plot(conf: Configuration, title=None):
     fig, ax = plt.subplots()
-    ax.set_ylim(0, L + 0.2)
-    ax.set_xlim(0, L + 0.2)
+    ax.set_ylim(0, conf.metadata['L'] + 0.2)
+    ax.set_xlim(0, conf.metadata['L'] + 0.2)
     if title:
         ax.set_title(title)
     ax.set_aspect('equal')
@@ -42,16 +42,14 @@ def plot(conf: Configuration, title=None):
         )
         ax.add_artist(outline)
 
-
-
-        container = patches.Rectangle((0.1, 0.1), width = L, height = L, edgecolor = 'grey', fill = False, linestyle = ':')
+        container = patches.Rectangle((0.1, 0.1), width = conf.metadata['L'], height = conf.metadata['L'], edgecolor = 'grey', fill = False, linestyle = ':')
         ax.add_patch(container)
     fig.show()
 
 def plot_with_v_color(conf, particle_labels=False):
     fig, ax = plt.subplots()
-    ax.set_ylim(0, L + 0.2)
-    ax.set_xlim(0, L + 0.2)
+    ax.set_ylim(0, conf.metadata['L'] + 0.2)
+    ax.set_xlim(0, conf.metadata['L'] + 0.2)
     ax.set_aspect('equal')
     plt.xticks([])
     plt.yticks([])
@@ -83,15 +81,15 @@ def plot_with_v_color(conf, particle_labels=False):
     cbar = fig.colorbar(cmx.ScalarMappable(norm, cmap), aspect=10, orientation='vertical', ax=ax, label='Velocity')
     cbar.set_ticks([])
 
-    container = patches.Rectangle((0.1, 0.1), width = L, height = L, edgecolor = 'grey', fill = False, linestyle = ':')
+    container = patches.Rectangle((0.1, 0.1), width = conf.metadata['L'], height = conf.metadata['L'], edgecolor = 'grey', fill = False, linestyle = ':')
     ax.add_patch(container)
     fig.show()
 
 
 def plot_trajectory(particle_index:int, confs: List):
     fig, ax = plt.subplots()
-    ax.set_ylim(0, L + 0.2)
-    ax.set_xlim(0, L + 0.2)
+    ax.set_ylim(0, confs[0].metadata['L'] + 0.2)
+    ax.set_xlim(0, confs[0].metadata['L'] + 0.2)
     ax.set_aspect('equal')
     plt.xticks([])
     plt.yticks([])
@@ -123,8 +121,8 @@ def plot_trajectory(particle_index:int, confs: List):
 
 def plot_with_velocities(conf: Configuration, scaled_velocities: bool = False, title=None, ):
     fig, ax = plt.subplots()
-    ax.set_ylim(0, L + 0.2)
-    ax.set_xlim(0, L + 0.2)
+    ax.set_ylim(0, conf.metadata['L'] + 0.2)
+    ax.set_xlim(0, conf.metadata['L']  + 0.2)
     if title:
         ax.set_title(title)
     ax.set_aspect('equal')
@@ -141,7 +139,7 @@ def plot_with_velocities(conf: Configuration, scaled_velocities: bool = False, t
 
         plt.arrow(position[0]+ 0.1, position[1]+ 0.1, conf.velocities[i][0], conf.velocities[i][1])
 
-        container = patches.Rectangle((0.1, 0.1), width = L, height = L, edgecolor = 'grey', fill = False, linestyle = ':')
+        container = patches.Rectangle((0.1, 0.1), width = conf.metadata['L'] , height = conf.metadata['L'] , edgecolor = 'grey', fill = False, linestyle = ':')
         ax.add_patch(container)
     fig.show()
 

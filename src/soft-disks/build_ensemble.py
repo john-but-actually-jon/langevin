@@ -7,6 +7,7 @@ from utils import plot
 from data_types import Configuration
 
 def hex_build() -> Tuple[ArrayLike]:
+    """ Note: Only works for perfect square number of particles """
     initial_positions,  = np.empty([N, 2])
     initial_velocities = np.random.normal(0, velocity_variance, size=(N,2))
     vertalarr = np.arange(0, 11, 1)
@@ -24,7 +25,14 @@ def hex_build() -> Tuple[ArrayLike]:
     return Configuration(positions=initial_positions, velocities=initial_velocities, forces = np.full((N, 2), np.nan))
      
 
-def square_build(n = N) -> Configuration:
+def square_build(n = N, l = L) -> Configuration:
+    """
+    Return a square array of particles.
+    
+    Args:
+        - `n` (optional): The number of particles to initialize. Defaults to the value specified in `config.py`
+        - `l` (optional): The length of the box containing the configuration. Defaults to the value specified in `config.py`
+    """
     _velocities = np.random.normal(0, np.sqrt(velocity_variance), size=(n,2))
     mean_velocity = np.mean(_velocities, axis=0)
     initial_velocities = _velocities - mean_velocity
@@ -33,10 +41,16 @@ def square_build(n = N) -> Configuration:
     else:
         square_length = (int(np.sqrt(n)) + 1)**2
     
-    X,Y = np.mgrid[sigma/2:L-sigma/2:(L-0.2)/np.sqrt(square_length), sigma/2:L-sigma/2:(L-0.2)/np.sqrt(square_length)]
+    X,Y = np.mgrid[sigma/2:l-sigma/2:(l-0.2)/np.sqrt(square_length), sigma/2:l-sigma/2:(l-0.2)/np.sqrt(square_length)]
     initial_positions = np.array(list(zip(X.flatten(), Y.flatten())))
     
-    return Configuration(positions=initial_positions[:n,:], velocities=initial_velocities, forces = np.full((n, 2), np.nan))
+    conf_metadata = {'N':n, 'L':l}
+    return Configuration(
+        positions=initial_positions[:n,:], 
+        velocities=initial_velocities, 
+        forces = np.full((n, 2), np.nan),
+        metadata=conf_metadata
+    )
 
 if __name__ == "__main__":
     print(hex_build())
