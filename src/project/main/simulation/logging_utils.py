@@ -2,6 +2,8 @@ import logging
 from pathlib import Path
 from typing import OrderedDict
 
+from openmm import app
+
 class LogBuilder:
     
     @staticmethod
@@ -44,3 +46,29 @@ class LogBuilder:
             logger.addHandler(_ch)
         return logger
 
+    @staticmethod
+    def create_simulation_loggers(
+        project_dir: Path, 
+        env_vars: OrderedDict
+        ) -> list:
+        """ 
+        Use this to generate the standard simulation logging objects in 
+        a list to loop over.
+
+        Returns:
+            [PDBReporter, DCDReporter, StateDataReporter]
+        """
+        config_data_dir = f"{project_dir}/data/{env_vars['CONFIGURATION_NAME']}"
+        pdb_logger = app.pdbreporter.PDBReporter(
+            f"{config_data_dir}/{env_vars['RUN_NAME']}.pdb",
+            int(env_vars["PDB_LOG_FREQUENCY"])
+        )
+        dcd_logger = app.dcdreporter.DCDReporter(
+            f"{config_data_dir}/{env_vars['RUN_NAME']}.dcd",
+            int(env_vars["DCD_LOG_FREQUENCY"])
+        )
+        state_reporter = app.statedatareporter.StateDataReporter(
+            f"{config_data_dir}/{env_vars['CONFIGURATION_NAME']}-STATE.log",
+            int(env_vars["STATE_DATA_LOG_FREQUENCY"])
+        )
+        return [pdb_logger, dcd_logger, state_reporter]
