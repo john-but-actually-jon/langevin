@@ -1,0 +1,340 @@
+
+ **************************************************
+ Thank you for using the Noel-Onuchic-Whitford 
+ Structure-Based Model (SMOG) software, Version 1.2.3          
+
+ Primary references:
+
+ All-Atom Models
+ Whitford et al. Proteins. 75, 430-441, 2009.
+
+ C-alpha Protein Model
+ Clementi et al. J Mol Biol. 298, 937-953, 2000.
+
+ SMOG software
+ Noel, Levi, Raghunathan, Lammert, Hayes,
+ Onuchic and Whitford.  PLOS Comp. Biol. 2016
+ DOI: 10.1371/journal.pcbi.1004794
+ **************************************************
+
+ System will not be shifted.
+ All-Atom  graining will be used
+ checked pdb file.  All atoms were recognized.
+ PDB file read in
+ NOTE: This webtool only uses coordinate precision to 10^-2 A
+ starting bond calculations
+ bonds done   2.45001167E-04 seconds elapsed
+ starting bond angle calculations
+ bond  angles done   2.51000747E-04 seconds elapsed
+ starting dihedral calculations
+ dihedrals done   2.87000090E-04 seconds elapsed
+ starting contact calculations
+ A cut-off distance will be used for calculating contacts
+   4.0000000000000000       for proteins
+   4.0000000000000000       for DNA
+   4.0000000000000000      for DNA-Protein
+ The XYZ dimensions of the grid used 
+ for contact calculations are
+   48.574001312255859        31.836997985839844        60.803001403808594     
+ contacts done  0.381470978     seconds elapsed
+ starting non-contact calculations
+ non-contacts will be given a repulsive distance of
+   2.5000000000000000      Angstroms
+ non-contacts will be given a repulsive epsilon of
+   1.0000000000000000E-002
+ repulsive done
+ non-contacts done   1.09970570E-05 seconds elapsed
+ writing parameters to file...
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+           2           7           9
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+           7           9          13
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+           4           5           6
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          13          14          15
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          13          14          16
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+           9          13          12
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          14          13          12
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          12          11          10
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          10           9          13
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          22          24          25
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          16          17          18
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          22          17          18
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          18          19          20
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          20          19          21
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          24          25          29
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          25          29          30
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          24          25          26
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          25          26          27
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          31          32          33
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+          33          35          36
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+         717         718         724
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+         719         718         724
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+         738         744         745
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+         757         758         759
+
+ WARNING: Bond angle is under 100 degrees.
+ Your structure may be strange. 
+ Offending bond between atoms
+         760         758         759
+
+ SUCCESS : GRO and TOP files have been written.
+
+Starting calculation of the shadow map.
+SHADOW Settings...
+Maximum contact distance: 6
+Shadowing radius: 1
+Minimum sequence difference for protein-protein contacts: 3
+Minimum sequence difference for NA-NA contacts: 0
+Done with Shadow settings.
+
+
+Shadow Contact Map Java Application (SCM)
+Created by Jeff Noel at CTBP-UCSD
+Version 1.31
+
+Reading grofile: TrialSystem1.28998.pdb.gro.
+1 762
+Found 762 atoms.
+Reading Chains from TrialSystem1.28998.pdb.ndx.
+1 762
+Found 1 chains.
+Reading Topology.
+Found 457 pairs.
+Initializing connected list.
+Found 32 atom types.
+Found 457 pairs.
+Found 769 bonds.
+Found 1027 angles.
+Found 2303 dihedrals.
+Calculating contacts.
+Printing reindexed PDB to file: TrialSystem1.28998.pdb.meta.pdb.
+Each chain will start with residue 1 and atom 1.
+Printing residue-residue contacts to file: TrialSystem1.28998.pdb.contacts.
+1
+******* Parameters Used *********
+Atom shadowing size: 1.0
+Cutoff radius: 6.0
+Sequence distance between protein contacts: 3
+Sequence distance between RNA/DNA contacts: 0
+Shadowing size of bonded atom: 0.5
+*********************************
+Total time: 0.194 seconds.
+*****************************************************************
+This software is part of SMOG.  http://smog-server.org
+Direct questions to: info@smog-server.org
+Work utilizing SMOG should cite:
+
+Noel JK, Whitford PC, Sanbonmatsu KY & Onuchic JN (2010)
+SMOG@ctbp: simplified deployment of structure-based models in GROMACS.
+Nucleic Acids Research, 38, W657?61. DOI: 10.1093/nar/gkq498
+
+Work using the Shadow contact map should cite:
+
+Noel, JK, Whitford PC & Onuchic JN (2012)
+The shadow map: a general contact definition for capturing the 
+dynamics of biomolecular folding and function. 
+Journal of Physical Chemistry B 116, 8692?8702.
+*****************************************************************
+Finished. 
+
+
+
+
+Done with calculation of the shadow map. The following messages will correspond to your simulation settings.
+
+
+ **************************************************
+ Thank you for using the Noel-Onuchic-Whitford 
+ Structure-Based Model (SMOG) software, Version 1.2.3          
+
+ Primary references:
+
+ All-Atom Models
+ Whitford et al. Proteins. 75, 430-441, 2009.
+
+ C-alpha Protein Model
+ Clementi et al. J Mol Biol. 298, 937-953, 2000.
+
+ SMOG software
+ Noel, Levi, Raghunathan, Lammert, Hayes,
+ Onuchic and Whitford.  PLOS Comp. Biol. 2016
+ DOI: 10.1371/journal.pcbi.1004794
+ **************************************************
+
+ System will be given a buffer of (in A): 
+   10.000000000000000        10.000000000000000        10.000000000000000     
+ Going to add charges to some atoms.
+ CA        graining will be used
+ Since you are using a CA model, atom checking is disabled
+ PDB file read in
+ NOTE: This webtool only uses coordinate precision to 10^-2 A
+ starting bond calculations
+ bonds done   4.13000584E-04 seconds elapsed
+ starting bond angle calculations
+ bond  angles done   4.18999232E-04 seconds elapsed
+ starting dihedral calculations
+ dihedrals done   1.17000006E-03 seconds elapsed
+ starting contact calculations
+ contacts done   2.64000148E-04 seconds elapsed
+ starting non-contact calculations
+ non-contacts will be given a repulsive distance of
+   4.0000000000000000      Angstroms
+ non-contacts will be given a repulsive epsilon of
+   1.0000000000000000     
+ repulsive done
+ non-contacts done   6.99982047E-06 seconds elapsed
+ writing parameters to file...
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+           1           2           3
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+           3           4           5
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+           4           5           6
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+           5           6           7
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          37          38          39
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          87          88          89
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          88          89          90
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          89          90          91
+
+ WARNING: Bond angle is over 140 degrees!
+ Your structure may be strange, and this 
+ may lead to spikes in energy (see FAQ page)
+ Offending bond between atoms
+          90          91          92
+
+ SUCCESS : GRO and TOP files have been written.
