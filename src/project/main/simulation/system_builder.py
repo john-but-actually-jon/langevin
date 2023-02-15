@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 from pathlib import Path
+
 import openmm as mm
 from openmm import app
 from openmm import unit as U
 from pdbfixer import PDBFixer
+import mdtraj as md
 
 from .logging_utils import LogBuilder
 from .configuration import Configuration, StdConfiguration
@@ -29,14 +32,13 @@ class NVTSystem(SystemHandler):
             "SystemBuild", 
             self.configuration.env_vars
         )
-    
-    def build_system(self, base_structure_filename: Path, ) -> mm.System:
-        """"""
+
+    def fix_pdb(self, pdb_filename: Path, output_filename: Optional[str] = None) -> None:
         struc = PDBFixer(
-            str(Path(self.configuration.project_dir, "data", base_structure_filename))
+            str(Path(self.configuration.project_dir, "data", pdb_filename))
         )
         self.logger.info(
-            f"Topology loaded from {base_structure_filename}: {struc.topology.__repr__().strip('Topology; <>')}"
+            f"Topology loaded from {pdb_filename}: {struc.topology.__repr__().strip('Topology; <>')}"
         )
         struc.addMissingHydrogens()
         struc.findMissingResidues()
@@ -45,10 +47,14 @@ class NVTSystem(SystemHandler):
         self.logger.info(f"Missing residues: {struc.missingResidues}")
         self.logger.info(f"Missing atoms: {struc.missingAtoms}")
         self.logger.info(f"Nonstandard residues: {struc.nonstandardResidues}")
-        # struc.addMissingAtoms()
-
         self.logger.info(f"Updated Topology: {struc.topology.__repr__().strip('Topology; <>')}")
+        with open(output_filename, 'w') as f:
+            pass
 
+    
+    def build_system(self, base_structure_filename: Path, ) -> mm.System:
+        """"""
+        struc = md.load_pdb(base_structure_filename)
         forcefield = app.ForceField('amber99sb.xml')
         system = forcefield.createSystem(
             struc.topology,
