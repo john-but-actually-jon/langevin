@@ -35,7 +35,6 @@ class StdConfiguration(Configuration):
 
         self.env_vars = dotenv_values(dotenv_path)
         self.logger = LogBuilder.create_sublogger(
-            self.project_dir,
             "Configuration", 
             self.env_vars
         )

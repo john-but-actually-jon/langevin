@@ -5,10 +5,23 @@ from typing import OrderedDict
 from openmm import app
 
 class LogBuilder:
+
+    def _configure_output_path(env_vars: OrderedDict) -> Path:
+        path = Path(
+            Path(__file__).parent.parent.parent, 
+            "data", 
+            env_vars["CONFIGURATION_NAME"], 
+            env_vars["RUN_NAME"]
+        )
+        if not path.exists():
+            if not path.parent.exists():
+                print(f"Performing first time setup for {path.parent}")
+                path.parent.mkdir()
+            path.mkdir()
+        return path
     
     @staticmethod
     def create_sublogger(
-        project_dir: Path,
         component_name: str, 
         env_vars: OrderedDict
     ) -> logging.Logger:
@@ -19,25 +32,21 @@ class LogBuilder:
         and assigning a unique name for each component.
 
         Args:
-            - `project_dir` [req]: The `Path` object containing the 
-            address for the directory that contains the logs directory,
-            where logs will be saved. 
             - `component_name` [req]: The name of the subcomponent.
             This name is appended before the `RUN_NAME` .env variable
             when each log entry is recorded.
             - `env_vars` [req]: The OrderedDict returned from a call
             to `dotenv_values
         """
-        project_dir = Path(__file__).parent.parent.parent
+        data_dir = LogBuilder._configure_output_path(env_vars)
         logger = logging.getLogger(
             component_name + "|" + env_vars["RUN_NAME"]+"> "
         )
         logger.setLevel(env_vars["LOG_LEVEL"])
         log_formatter = logging.Formatter(env_vars["LOG_FORMAT"])
         log_formatter.default_msec_format = "" # remove milliseconds
-        log_dir = Path(project_dir, "logs")
 
-        _fh = logging.FileHandler(Path(log_dir, env_vars["LOG_FILE_NAME"]))
+        _fh = logging.FileHandler(Path(data_dir, env_vars["LOG_FILE_NAME"]))
         _fh.setFormatter(log_formatter)
         logger.addHandler(_fh)
         if env_vars["LOG_TO_TERMINAL"].lower() == "true":
@@ -48,8 +57,7 @@ class LogBuilder:
 
     @staticmethod
     def create_simulation_loggers(
-        project_dir: Path, 
-        env_vars: OrderedDict
+        env_vars: OrderedDict,
         ) -> list:
         """ 
         Use this to generate the standard simulation logging objects in 
@@ -58,17 +66,30 @@ class LogBuilder:
         Returns:
             [PDBReporter, DCDReporter, StateDataReporter]
         """
-        config_data_dir = f"{project_dir}/data/{env_vars['CONFIGURATION_NAME']}"
+        data_dir = LogBuilder._configure_output_path(env_vars)
+
         pdb_logger = app.pdbreporter.PDBReporter(
-            f"{config_data_dir}/{env_vars['RUN_NAME']}.pdb",
+            f"{data_dir}/{env_vars['RUN_NAME']}.pdb",
             int(env_vars["PDB_LOG_FREQUENCY"])
         )
         dcd_logger = app.dcdreporter.DCDReporter(
-            f"{config_data_dir}/{env_vars['RUN_NAME']}.dcd",
+            f"{data_dir}/{env_vars['RUN_NAME']}.dcd",
             int(env_vars["DCD_LOG_FREQUENCY"])
         )
         state_reporter = app.statedatareporter.StateDataReporter(
-            f"{config_data_dir}/{env_vars['CONFIGURATION_NAME']}-STATE.log",
-            int(env_vars["STATE_DATA_LOG_FREQUENCY"])
+            f"{data_dir}/{env_vars['LOG_FILE_NAME']}",
+            int(env_vars["STATE_DATA_LOG_FREQUENCY"]),
+            time=True,
+            temperature=True,
+            progress=True,
+            remainingTime=True
         )
         return [pdb_logger, dcd_logger, state_reporter]
+    
+
+if __name__ == "__main__":
+    from dotenv import dotenv_values
+    _path = Path(Path(__file__).parent.parent.parent.absolute(), ".env")
+    vars = dotenv_values(_path)
+    LogBuilder.create_simulation_loggers(vars)
+
