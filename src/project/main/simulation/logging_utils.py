@@ -81,8 +81,8 @@ class LogBuilder:
             int(env_vars["STATE_DATA_LOG_FREQUENCY"]),
             time=True,
             temperature=True,
-            progress=True,
-            remainingTime=True
+            # progress=True,
+            # remainingTime=True
         )
         return [pdb_logger, dcd_logger, state_reporter]
     

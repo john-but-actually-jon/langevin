@@ -55,14 +55,16 @@ class SMOGSystem(SystemHandler):
         gro = app.GromacsGroFile(str(gromacs_directory / f"{gromacs_dir}.gro"))
         top = app.GromacsTopFile(str(gromacs_directory / f"{gromacs_dir}.top"))
 
-        system=top.createSystem()
+        system=top.createSystem(
+            nonbondedMethod=app.CutoffNonPeriodic,
+            nonbondedCutoff=0.65*U.nanometer,
+            removeCMMotion=True,
+            ewaldErrorTolerance=0.0005
+        )
 
-        non_bonded_force = mm.openmm.CustomNonbondedForce("(sigma/r)^6")
-        non_bonded_force.addGlobalParameter('sigma', 0.2)
-        non_bonded_force.setCutoffDistance(0.65*U.nanometer)
-        system.addForce(non_bonded_force)
-        
-        system.addForce(mm.openmm.CMMotionRemover())
+        system.setDefaultPeriodicBoxVectors(
+            *[vec * 2 for vec in gro.getPeriodicBoxVectors()]
+        )
 
         # Cache the starting system
         with open(self.home_dir / "initial_system.xml", "w") as  f:
@@ -75,33 +77,39 @@ class SMOGSystem(SystemHandler):
             float(self.vars["LANGEVIN_TIMESTEP"])*mm.unit.picoseconds
         )
 
+        integrator.setRandomNumberSeed(int(self.vars["RANDOM_NUMBER_SEED"]))
+
         simulation = app.Simulation(top.topology, system, integrator)
-        simulation.context.setPositions(pos.positions)
+        simulation.context.setPositions(gro.positions)
+
+        for reporter in LogBuilder.create_simulation_loggers(self.vars):
+            simulation.reporters.append(reporter)
 
         return simulation
 
+class ExternalSourceHandler(SystemHandler):
+    """ 
+    Used for when the data being imported doesn't 
+    reside in the data directory, but rather 
+    an external source
+    """
+    def __init__(self, path_to_data: Path):
+        self.data_dir = path_to_data
+        self.configuration = StdConfiguration()
+        self.vars = self.configuration.env_vars
+        self.logger = LogBuilder.create_sublogger(
+            "SystemBuilder", 
+            self.vars
+        )
+        # File structure should be handled by the logger initialization
+        self.home_dir = self.data_dir / self.vars["CONFIGURATION_NAME"] / self.vars["RUN_NAME"]
+        assert self.home_dir.exists(), "Run directory does not exist, system initialization failed!"
 
-    # def SbmFuckery():
-    #     sbm = SBM(
-    #         name=self.vars["RUN_NAME"], 
-    #         time_step=self.vars["TIME_STEP"], 
-    #         collision_rate=self.vars["COLLISION_RATE"], 
-    #         r_cutoff=self.vars["CUTOFF_RADIUS"], 
-    #         temperature=0.5
-    #     )
+    def load_trajectory(self):
+        pass
 
-    #     sbm.setup_openmm(
-    #         platform=self.vars["PLATFORM"]
-    #     )
-
-    #     sbm.saveFolder(f'{self.vars["RUN_NAME"]}-output')
-
-    #     sbm_grofile = Path(self.configuration.project_dir, 'data', self.vars["RUN_NAME"], f'{self.vars["BASE_NAME"]}.gro')
-    #     sbm_topfile = Path(self.configuration.project_dir, 'data', self.vars["RUN_NAME"], f'{self.vars["BASE_NAME"]}.top')
-    #     sbm_xmlfile = Path(self.configuration.project_dir, 'data', self.vars["RUN_NAME"], f'{self.vars["BASE_NAME"]}.xml')
-
-    #     sbm.loadSystem(Grofile=sbm_grofile, Topfile=sbm_topfile, Xmlfile=sbm_xmlfile)
-
+    def build_simulation(self):
+        return super().build_simulation()
 
 
 def SomeHandler(SystemHandler):
